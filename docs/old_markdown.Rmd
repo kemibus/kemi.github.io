@@ -1,0 +1,361 @@
+---
+title: "Kemi_Class_Project"
+author: "Kemi"
+date: "2024-11-12"
+output: html_document
+---
+
+
+#I abandoned this markdown because the rtf files gave me some issues. My new markdown is named Class_projectpdf.Rmd.
+
+
+```{r}
+#install.packages("pdftools")
+library(pdftools)
+library(tidyverse)
+library(pdftools)
+library(stringr)
+install.packages("readxl")
+library(readxl)
+install.packages("striprtf")
+library(striprtf)
+library(rio)
+```
+
+
+#Load RTF dataset
+```{r}
+dele_file <- "~/GitHub/Kemi_repository/dele_news" 
+```
+
+#Extract text from the RTF file
+```{r}
+# Install the unrtf package if not already installed
+# if (!require("unrtf")) install.packages("unrtf")
+install.packages("unrtf")
+# Load the unrtf library
+library(unrtf)
+
+# Define the folder paths
+rtf_folder <- "../dele_news"
+text_folder <- "./text" # Replace with your desired text folder path
+
+# Create the output folder if it doesn't exist
+if (!dir.exists(text_folder)) {
+  dir.create(text_folder)
+}
+
+# Get a list of all .RTF files in the folder
+rtf_files <- list.files(rtf_folder, pattern = "\\.RTF$", full.names = TRUE)
+
+# Convert each .RTF file to .txt and save in the text folder
+for (rtf_file in rtf_files) {
+  # Extract the file name without extension
+  file_name <- tools::file_path_sans_ext(basename(rtf_file))
+ 
+  # Convert RTF to plain text
+  text_content <- unrtf::unrtf(rtf_file, format = "text")
+ 
+  # Define the output .txt file path
+  output_file <- file.path(text_folder, paste0(file_name, ".txt"))
+ 
+  # Write the text content to the output file
+  writeLines(text_content, output_file)
+}
+
+cat("Conversion complete. Extracted text files are saved in:", text_folder) 
+```
+
+#Import the excel file
+```{r}
+library(tidyverse)
+dele_excel  <- rio::import("dele_excel.XLSX") %>%
+  janitor::clean_names()
+```
+
+
+#list files and merge by filename
+```{r}
+files <- list.files("./text", pattern="*.txt") %>% 
+  as.data.frame() |> 
+  rename(filename = 1) |> 
+  #create an index with the file name
+ mutate(index = str_extract(filename, "\\d+")) |>
+  mutate(filename = str_replace_all(filename, ".txt", ""))|>
+  mutate(index = as.numeric(index))
+```
+
+
+#final index
+```{r}
+#My first attempt to join by title captured only 277 articles due because some were not matching. After checking, i realised 199 of them did not sync. So i used fuzzyjoin to merge (thanks to Chatgpt)
+
+# Check unmatched rows
+unmatched_titles <- anti_join(dele_excel, files, by = c("title" = "filename"))
+print(unmatched_titles)
+
+# Install fuzzyjoin if not installed
+install.packages("fuzzyjoin")
+
+# Load the library
+library(fuzzyjoin)
+
+# Perform a fuzzy join with a similarity threshold
+final_index <- stringdist_inner_join(dele_excel, files, 
+                                     by = c("title" = "filename"),
+                                     max_dist = 3)  
+# View results
+nrow(final_index)
+```
+
+
+#some columns are repeated, contains no value or not needed so i deleted them. This reduced the columns from 21 to 14
+```{r}
+# Remove specified columns from the dataset
+#library(dplyr)
+#final_index <- final_index |> 
+  #select(-section, -byline, -agg_copyright, -cite, 
+        # -company, -pub_copyright, -show, -term, -ticker)
+```
+#I abandoned this code because it altered my subsequent results. For instance i got N/A for published_date column after running this.
+
+
+
+#Some articles are published more than once so i removed them. This reduced the dataset from 473 to 342
+```{r}
+# Remove rows with duplicate titles
+final_index <- final_index |> 
+  distinct(title, .keep_all = TRUE)
+```
+
+
+#Arrange published date in the same format, remove days of the week (Monday, Tuesday...),present in descending order
+```{r}
+library(dplyr)
+library(lubridate)
+# Attempt to parse the date using lubridate's guess_formats() or mdy/dmy/ymd functions
+final_index <- final_index |> 
+  mutate(
+    # Try parsing the date with lubridate, this can handle multiple date formats
+    published_date = mdy(published_date) %>% 
+      # If mdy fails, try dmy (day-month-year) format
+      coalesce(dmy(published_date)) %>%
+      # If that fails too, try ymd (year-month-day) format
+      coalesce(ymd(published_date)) 
+  ) |> 
+  arrange(desc(published_date))  
+
+# View the updated dataset
+glimpse(final_index)
+```
+
+
+#Create a separate column for year
+```{r}
+# Ensure the `published_date` column is in Date format and extract the year
+final_index <- final_index |> 
+  mutate(
+    # Convert `published_date` to Date if it's not already in Date format
+    published_date = as.Date(published_date, format = "%Y-%m-%d"),  # Adjust format as necessary
+    
+    # Extract the year from the `published_date` into `published_year`
+    published_year = year(published_date)
+  )
+```
+#It was at this point i realised my dataset was just from 2010 to 2024. Something wrong with Nexis Uni?
+
+
+
+#Remove brackets from the publication names
+#Merge "Daily Trust (Abuja)" and "Weekly Trust" into "Daily Trust". It's the same newspaper
+```{r}
+# Merge "Daily Trust (Abuja)" and "Weekly Trust" into "Daily Trust"
+ library(dplyr)
+library(stringr)
+
+# Clean and standardize the `publication_4` column
+final_index <- final_index |> 
+  mutate(
+    # Remove brackets and the words inside them using regex
+    publication_4 = str_remove_all(publication_4, "\\s*\\(.*?\\)"),
+    
+    # Merge "Daily Trust" variants into a single value
+    publication_4 = case_when(
+      publication_4 %in% c("Daily Trust", "Weekly Trust") ~ "Daily Trust",
+      TRUE ~ publication_4  
+    )
+  )
+```
+
+#Summary of data
+```{r}
+summary(final_index)
+```
+
+
+
+# Count the number of articles per year
+```{r}
+articles_year <- final_index |> 
+  count(published_year, sort = TRUE)
+```
+
+
+#Create a ggplot to visualize
+```{r}
+library(ggplot2)
+ggplot(articles_per_year, aes(x = factor(published_year), y = n)) +
+  geom_bar(stat = "identity", fill = "dodgerblue", color = "black") + 
+  theme_minimal() +  
+  labs(
+    title = "Number of Articles per Year",
+    subtitle = "Date Created: Nov 23, 2024",
+    caption = "Graph by Kemi Busari",
+    x = "Year",
+    y = "Number of Articles"
+  ) +
+  theme(
+    plot.caption = element_text(size = 10, face = "italic"),  
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    axis.text = element_text(size = 10),  
+    axis.title = element_text(size = 12) 
+  ) +
+  geom_text(aes(label = n), vjust = -0.5, size = 3.5, color = "black")  # Add counts 
+```
+
+
+
+
+#Count articles by publication and arrange in descending order
+```{r}
+pub_count <- final_index |> 
+  count(publication_4, sort = TRUE)
+```
+
+
+#Identify top 10 publications
+```{r}
+top_10_pub_count <- pub_count |> 
+  head(10)
+```
+
+#Create a ggplot to visualize
+```{r}
+ggplot(top_10_pub_count, aes(x = reorder(publication_4, -n), y = n)) +
+  geom_bar(stat = "identity", fill = "dodgerblue", color = "black") +  # Bar chart with custom colors
+  geom_text(aes(label = n), vjust = -0.5, size = 4, color = "black") +  # Add labels above bars
+  theme_minimal() +  # Minimal theme for clean visuals
+  labs(
+    title = "Number of Articles per Publication",
+    subtitle = "Date Created: Nov 23, 2024",
+    caption = "Graph by Kemi Busari",
+    x = "Publication",
+    y = "Number of Articles"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Bold and centered title
+    plot.subtitle = element_text(size = 12, hjust = 0.5),  # Centered subtitle
+    plot.caption = element_text(size = 10, face = "italic"),  # Italicized caption
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for better readability
+    axis.text = element_text(size = 10),  # Adjust axis text size
+    axis.title = element_text(size = 12)  # Adjust axis title size
+  )
+```
+
+
+
+
+# Part 2: Compile Text into a Dataframe
+
+## Raw text compiler 
+```{r}
+# List out text files that match pattern .txt, create DF
+files <- list.files("~/GitHub/CompText_Jour/Week_10_assignment/Week _10_extracted", pattern="*.txt") %>% 
+  as.data.frame() %>% 
+  rename(filename = 1) %>%  
+  
+  #create an index with the file name
+ mutate(index = str_extract(filename, "\\d+")) |> 
+  mutate(index = as.numeric(index))
+
+#the actual path: #~/GitHub/CompText_Jour/Week_10_assignment/Week _10_extracted
+
+#Join the file list to the index
+
+#load final data if you haven't already
+#final_data <- read.csv("assets/final_data.csv")
+
+final_index <- final_data |> 
+  inner_join(files, c("index")) |> 
+#you need the actual hard-coded path on this line below to the text
+  
+  # mutate(filepath = paste0("/~/GitHub/CompText_Jour/Week_10_assignment/Week _10_extracted))
+  mutate(filepath = paste0("~/GitHub/CompText_Jour/Week_10_assignment/Week _10_extracted", filename))
+head(final_index)
+```
+
+# Count the number of distinct articles
+```{r}
+  distinct_articles_count <- final_index |> 
+  summarise(distinct_count = n_distinct(paste(title, published_date)))
+```
+
+
+
+
+# Tokenize and remove stop words
+```{r}
+ library(tidytext)
+tokenized_data <- final_index |> 
+  unnest_tokens(word, title)  
+head(tokenized_data)
+# Remove stopwords
+tokenized_data <- final_index |> 
+  unnest_tokens(word, title) |> 
+  anti_join(stop_words)  # Remove common stopwords
+
+# View the cleaned tokenized dataset
+head(tokenized_data)
+```
+
+Hi Prof.,
+I stopped my analysis here. I realized the Excel file and the rtf did not properly join. I will keep working on this but this is my progress so far.
+
+
+
+
+
+
+
+
+
+
+# Count the number of articles by media platform
+
+#Identify top 20 bigrams overall
+```{r}
+```
+
+##Identify top 20 bigrams (military era)
+```{r}
+```
+
+#Identify top 20 bigrams (democratic period)
+```{r}
+```
+
+#Create ggplot
+```{r}
+```
+
+```{r}
+
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
