@@ -1,0 +1,406 @@
+---
+title: "Class_projectpdf"
+author: "Kemi"
+date: "2024-11-24"
+output: html_document
+---
+
+#Welcome to my final project 
+
+#Summary of final project (word version uploaded to directory)
+#RQ,codebook and other details are at the end of this markdown.
+This study examines 454 commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
+
+
+
+#Load packages
+```{r}
+library(pdftools)
+library(tidyverse)
+library(stringr)
+library(readxl)
+library(rio)
+library(tidytext)
+```
+
+#link to dataset on GitHub
+```{r}
+#link - https://github.com/kemibus/Kemi_repository/blob/main/dele.PDF
+```
+
+
+
+#load pdf file
+```{r}
+#Remove split_file folder in a cleanup
+text <- pdf_text("dele.PDF")
+```
+
+
+#Read text from a PDF file
+```{r}
+dele_text <- pdf_text("dele.PDF")
+#write to a text file
+writeLines ("~/GitHub/Kemi_repository/dele_extracted.txt")
+```
+
+
+#Split the text to have one article per file
+```{r}
+# Ensure necessary libraries are loaded
+library(stringr)
+
+# Define file path to input and output locations
+input_file <- "~/GitHub/Kemi_repository.txt"  # Correct the file path here
+output_dir <- "~/GitHub/Kemi_repository/dele_extracted"  # Correct output directory
+
+# Combine lines into a single string
+dele_combined <- paste(dele_text, collapse = "\n")
+
+# Split the text by the "End of Document" phrase
+dele_split <- strsplit(dele_combined, "End of Document")[[1]]
+
+# Write each section to a new file
+for (i in seq_along(dele_split)) {
+  # Define the output file path
+  output_file <- file.path(output_dir, paste0("dele_extracted_", i, ".txt"))
+  
+  # Write each split section to the file
+  writeLines(dele_split[[i]], output_file)
+}
+
+# Output confirmation with the number of files created
+cat("Files created:", length(dele_split), "\n")
+
+```
+
+
+#Construct a dataframe with an index of the articles a unique file name for each article
+```{r}
+library(stringr)
+
+# Define paths
+output_dir <- "~/GitHub/Kemi_repository/dele_extracted" 
+
+# Initialize the dataframe to store article information
+articles_df <- data.frame(
+  index = integer(),
+  file_name = character(),
+  content = character(),
+  stringsAsFactors = FALSE
+)
+
+# Process each split article from dele_split
+for (i in seq_along(dele_split)) {
+  # Define unique file name for each article
+  output_file <- file.path(output_dir, paste0("dele_extracted_", i, ".txt"))
+  
+  # Write the article content to the file
+  writeLines(dele_split[[i]], output_file)
+  
+  # Append to the dataframe
+  articles_df <- rbind(
+    articles_df,
+    data.frame(
+      index = i,
+      file_name = paste0("dele_extracted_", i, ".txt"),
+      content = dele_split[[i]],
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+# Print the number of files created
+cat("Files created:", length(dele_split), "\n")
+
+# Display the dataframe
+print(articles_df)
+```
+
+
+#Pull the text articles together into a single dataframe, one row per sentence
+#Construct the output file path for each article
+```{r}
+# Ensure necessary libraries are loaded
+library(dplyr)
+
+# Initialize the dataframe to store sentences
+sentences_df <- data.frame(
+  article_index = integer(),
+  file_name = character(),
+  sentence = character(),
+  stringsAsFactors = FALSE
+)
+
+# Process each split article from dele_split
+for (i in seq_along(dele_split)) {
+  # Define unique file name for each article
+  output_file <- file.path(output_dir, paste0("dele_extracted_", i, ".txt"))
+  
+  # Write the article content to the file
+  writeLines(dele_split[[i]], output_file)
+  
+  # Split the content into sentences
+  sentences <- unlist(str_split(dele_split[[i]], "(?<!\\w\\.)\\.\\s+|(?<!\\w\\.)\\!\\s+|(?<!\\w\\.)\\?\\s+"))
+  
+  # Append sentences to the dataframe
+  sentences_df <- rbind(
+    sentences_df,
+    data.frame(
+      article_index = i,
+      file_name = paste0("dele_extracted_", i, ".txt"),
+      sentence = sentences,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+# Print the number of articles processed
+cat("Files processed:", length(dele_split), "\n")
+
+# Display the dataframe with sentences
+print(sentences_df)
+```
+
+#Tokenize and remove stop words
+```{r}
+# Tokenize the sentences into individual words
+tokenized_df <- sentences_df %>%
+  unnest_tokens(word, sentence)  
+# Step 2: Remove stop words using the stop_words dataset from tidytext
+tokenized_df_clean <- tokenized_df %>%
+  anti_join(stop_words, by = "word") 
+```
+
+
+#Bigrams
+```{r}
+#Create bigrams (pairs of consecutive words)
+bigrams_df <- sentences_df %>%
+  unnest_tokens(bigram, sentence, token = "ngrams", n = 2)  # n = 2 creates bigrams
+
+#Remove stop words from bigrams (you can also remove stop words from bigrams)
+bigrams_clean_df <- bigrams_df %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word & !word2 %in% stop_words$word)  
+
+# View cleaned tokenized words and bigrams
+head(tokenized_df_clean) 
+head(bigrams_clean_df)  
+```
+
+#bigrams
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidytext)
+library(stringr)
+
+# Ensure stop_words dataset is available
+data("stop_words")
+
+# Fixing and cleaning up the text, removing unwanted patterns
+bigrams <- sentences_df %>% 
+  select(sentence) %>%  
+  mutate(text = str_squish(sentence)) %>%  # Remove extra whitespace
+  mutate(text = tolower(sentence)) %>%  # Convert to lowercase
+  mutate(text = str_replace_all(sentence, 
+        "title|pages|publication date|publication subject|issn|language of publication: english|document url|copyright|last updated|database|startofarticle|proquest document id|classification|https|--|people|publication|page 1|page 2|page 3|load date| rights reserved|words byline|live updates|words body|accredited voters|registered voters|votes cast|total votes|valid votes|polling units|democratic party|125 live|total valid| info|illustration|caption|[0-9.]|identifier /keyword|twitter\\.", "")) %>%  
+  mutate(text = str_replace_all(sentence, "- ", "")) %>%  # Remove hyphen followed by space
+  unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>%  
+  separate(bigram, c("word1", "word2"), sep = " ") %>%  
+  filter(!word1 %in% stop_words$word) %>%  
+  filter(!word2 %in% stop_words$word) %>%  
+  count(word1, word2, sort = TRUE) %>%  
+  filter(!is.na(word1))  
+
+# View the top bigrams
+head(bigrams)
+
+```
+#This is not a clean bigram. I'm still working on it so i decided not to visualize
+
+
+#load excel file and clean date column
+#I was unable to merge this with the text file
+```{r}
+library(readxl)
+library(lubridate)
+dele_excel  <- rio::import("dele_list.XLSX") %>%
+  janitor::clean_names()
+# Remove the days of the week from the `publication_date` column
+# Convert the publication_date to Date format and remove weekdays (e.g., "Monday", "Tuesday")
+dele_excel <- dele_excel %>%
+  mutate(
+    published_date = str_remove(published_date, "^\\s*(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\\s*") %>%
+    mdy(),  # Adjust mdy() if your date format is MM/DD/YYYY, use dmy() for DD/MM/YYYY
+    # Create a new column `year` by extracting the year from the `publication_date`
+    year = year(published_date)
+  ) %>%
+  # Arrange the dataframe in descending order by publication_date
+  arrange(desc(published_date))
+
+# View the cleaned data
+head(dele_excel)
+```
+
+
+
+# Count the number of articles published per year
+```{r}
+
+
+# Count the number of articles published per year and arrange by year
+articles_per_year <- dele_excel %>%
+  count(year) %>%  
+  arrange(year)    
+
+# View the count of articles per year
+print(articles_per_year)
+```
+
+# Remove NA values from the year column
+```{r}
+dele_excel <- dele_excel %>%
+  filter(!is.na(year))  
+```
+
+
+#visualize year
+```{r}
+ggplot(articles_per_year, aes(x = year, y = n)) +
+  geom_line(color = "steelblue", size = 1.2) +  
+  geom_point(color = "black", size = 3) +         
+  labs(
+    title = "Number of Articles per Year",
+    subtitle = "Date Created: Nov 23, 2024",
+    caption = "Graph by Kemi Busari",
+    x = "Year",
+    y = "Number of Articles"
+  ) +
+  theme_minimal() +  
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    plot.caption = element_text(size = 10, face = "italic"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+```
+
+
+#Identify the top five years with the most publications
+```{r}
+top_5 <- articles_per_year %>%
+  top_n(5, n)
+```
+
+
+#Visualize top 5
+```{r}
+ggplot(top_5, aes(x = factor(year), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue", color = "black") +
+  labs(
+    title = "Top 5 Years with Most Publications",
+    subtitle = "Date Created: Nov 23, 2024",
+    caption = "Graph by Kemi Busari",
+    x = "Year",
+    y = "Number of Articles"
+  ) 
+```
+
+#count the number of articles in military era(1986 to 1999)
+```{r}
+articles_1986_1999 <- dele_excel %>%
+  filter(year >= 1986 & year <= 1999) %>%  
+  count(year)
+```
+#Only 14 articles were published during the military era
+
+
+#count the number of articles in the democratic era(2000 to 2023)
+```{r}
+articles_2000_2023 <- dele_excel %>%
+  filter(year >= 2000 & year <= 2023) %>% 
+  count(year) 
+total_articles_2000_2023 <- sum(articles_2000_2023$n)
+```
+
+
+#Remove content inside brackets in publication column
+```{r}
+dele_excel <- dele_excel %>%
+  mutate(publication_4 = str_remove_all(publication_4, "\\(.*?\\)"))
+```
+
+
+#Merge "Weekly Trust" into "Daily Trust", they are the same
+```{r}
+dele_excel <- dele_excel %>%
+  mutate(publication_4 = str_replace(publication_4, "Weekly Trust", "Daily Trust"))
+```
+
+
+#Count the number of articles published by each newspaper
+```{r}
+articles_per_newspaper <- dele_excel %>%
+  count(publication_4) %>%  
+  group_by(publication_4) %>%  
+  summarise(total_articles = sum(n)) %>%  
+  arrange(desc(total_articles)) 
+```
+43 news platforms published about Dele Giwa
+
+
+#Show top 10 newspapers
+```{r}
+top_10_newspapers <- articles_per_newspaper %>%
+  arrange(desc(total_articles)) %>%
+  head(10)
+```
+
+
+#Visualize
+```{r}
+ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = total_articles)) +
+  geom_bar(stat = "identity", fill = "steelblue", color = "black") +  
+  geom_text(aes(label = total_articles), vjust = -0.3, size = 5, color = "black") +  
+  labs(
+    title = "Top 10 Newspapers with Most Articles",
+    subtitle = "Date Created: Nov 23, 2024",
+    caption = "Graph by Kemi Busari",
+    x = "Newspaper",
+    y = "Number of Articles"
+  ) +
+  theme_minimal() +  
+  theme(
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+```
+
+#Summary of final project (word version uploaded to directory)
+In morning of Monday, October 20, 1986, Dele Giwa, regarded as one of the most critical investigative journalists in Nigeria, was assassinated at his residence in Lagos, Nigeria. While the case is still unresolved, Nigerian journalists at every anniversary (and outside the period) publish news and editorialized articles to commemorate the assassination of Giwa. This study examines these commemorative articles to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023). Inquiry will be guided by these research questions:
+  
+#Research Questions
+1.	What are the dominant themes in the articles commemorating Dele Giwa’s assassination?
+2.	What are the differences in the commemoration of Dele Giwa between the military era (Oct 1987 to May 1999) and the civilian era (May 1999 to Oct 2023)?
+```
+
+
+
+```{r}
+#Spell out your content analysis plan, including preliminary work on a code book
+The 454 articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis will be run with the ultimate aim of identifying dominant themes:
+Bigrams: The dataset will be tokenized and then analyzed for bigrams to reveal the top phrases.
+Topic modelling: Latent Dirichlet Allocation (LDA) will be used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
+Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
+
+#Coding scheme
+Below are some preliminary thoughts on a coding scheme based on the literature and my familiarization with the data:
+Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
+Calls for Justice: different expressions advocating for justice or accountability for his assassination.
+Criticism of Authorities: Critical reflections on the failure of successive governments, law enforcement, or judiciary to solve the murder will fall under this category
+Freedom of the Press: Themes highlighting press freedom and the risks journalists face in Nigeria.
+Comparison of Eras: Contrasts between the military and civilian eras in terms of press freedom, accountability, or socio-political environment.
+Role Model: Description of Dele Giwa as an icon of good journalism whose work inspires other journalists.
+```
