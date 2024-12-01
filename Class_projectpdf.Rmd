@@ -51,31 +51,34 @@ library(tidyr)
 #Read text from a PDF file
 ```{r}
 # Specify the file path
-filepath <- "~/GitHub/kemi_new/dele.PDF"
-#Read text
-dele_text <- pdf_text("dele.PDF") 
+#filepath <- "~/GitHub/kemi_new/dele.PDF"
+#Read pdf and coverting it into text
+text <- pdf_text("~/GitHub/kemi_new/dele.PDF") 
 #write to a text file
-writeLines (dele_text, "dele_extracted/dele_text.txt")
+writeLines (text, "~/GitHub/kemi_new/dele.text")
+
 ```
 
 
 #Split the text to have one article per file
 ```{r}
-# Read the text from the PDF
-dele_text <- pdf_text("~/GitHub/kemi_new/dele.PDF")
 
+#Read the text from the PDF
+#dele_text <- pdf_text("~/GitHub/kemi_new/dele.PDF")
+file_path <- ("~/GitHub/kemi_new/dele.text")
+text_data <- read_lines(file_path)
 # Combine all the pages into one text 
-dele_combined <- paste(dele_text, collapse = "\n")
+text_combined <- paste(text_data, collapse = "\n")
 
 # Split the text by the "End of Document" phrase 
-dele_split <- strsplit(dele_combined, "End of Document")[[1]]
+dele_split <- strsplit(text_combined, "End of Document")[[1]]
 
 # Set the output directory for saving the split files
 output_dir <- "~/GitHub/kemi_new/dele_extracted"
 
 # Write each section to a new text file
 for (i in seq_along(dele_split)) {
-  output_file <- file.path(output_dir, paste0("dele_article_", i, ".txt"))
+  output_file <- file.path(output_dir, paste0("dele_extracted", i, ".txt"))
   writeLines(dele_split[[i]], output_file)
 }
 
@@ -83,17 +86,14 @@ for (i in seq_along(dele_split)) {
 cat("Files created:", length(dele_split), "\n")
 
 ```
+
+
 ```{r}
-dele_index <- read_lines("dele_extracted/dele_article_1.txt ")
-extracted_lines <-dele_index[7:1517]
+dele_index <- read_lines("~/GitHub/kemi_new/dele_extracted/dele_extracted1.txt")
+extracted_lines <-dele_index[16:1504]
 cat(head(extracted_lines, 7), sep = "\n")
 extracted_lines <- extracted_lines |> 
   as.data.frame()
-```
-
-
-```{r}
- 
 ```
 
 
@@ -140,14 +140,14 @@ final_data <- final_data |>
   select(index, date, title, publication)
 
 # Save final data
-write_csv(final_data, "dele_extracted/final_data.csv")
+write_csv(final_data, "./final_data.csv")
 ```
 
 
 #Raw text compiler 
 ```{r}
 # List all text files in the directory
-files <- list.files("~/GitHub/kemi_new/dele_extracted", pattern="*.txt", full.names = TRUE) %>% 
+files <- list.files("~/GitHub/kemi_new/dele_extracted", pattern="*.txt") |>
   as.data.frame() |> 
   rename(filename = 1) |> 
   mutate(
@@ -156,15 +156,9 @@ files <- list.files("~/GitHub/kemi_new/dele_extracted", pattern="*.txt", full.na
     index = as.numeric(index)
   )
 
-# Read the content of each text file and store it in a new column
-files <- files |>
-  mutate(
-    content = map(filename, ~ read_lines(.x))  
-  )
-
 # Join the file list to the final_data dataframe based on index
 final_index <- final_data |>
-  inner_join(files, by = "index") |>
+  inner_join(files, c("index")) |>
   mutate(filepath = paste0("~/GitHub/kemi_new/dele_extracted/", filename))
 
 # Display the head of the compiled dataframe with filenames and content
@@ -175,84 +169,139 @@ head(final_index)
 
 #Text compiler
 ```{r}
-# Define function to loop through each text file
-# Define function to loop through each text file
+# Define function to loop through each text file 
+
 create_article_text <- function(row_value) {
-  # Take each row of the dataframe
   temp <- final_index %>%
     slice(row_value)
   
-  # Ensure that the filepath is correctly formed, without duplication
-  temp_filepath <- temp$filepath
-  
-  # Check if file exists
-  if (!file.exists(temp_filepath)) {
-    message(paste("File does not exist:", temp_filepath))
-    return(NULL)  # If the file doesn't exist, skip this iteration
-  }
-
-  # Store the filename for use in constructing articles dataframe
+ 
   temp_filename <- temp$filename
   
-  # Create a dataframe by reading in lines of the given text file
-  # Add a filename column 
-  articles_df_temp <- read_lines(temp_filepath) %>%
+  articles_df_temp <- read_lines(temp$filepath) %>%
     as_tibble() %>%
     mutate(filename = temp_filename)
-  
-  # Bind results to master articles_df (global environment)
+ 
   articles_df <<- articles_df %>%
     bind_rows(articles_df_temp)
 }
 
-# Create elements needed to run the function
-
-# Create empty tibble to store results
 articles_df <- tibble()
-
-# Create an array of numbers to loop through, from 1 to the number of rows in our index dataframe 
 row_values <- 1:nrow(final_index)
 
-# Execute function using lapply
-# This loops through each row of the dataframe and appends results to the master file
 lapply(row_values, create_article_text)
 
-# Check the column names of the articles_df before proceeding
-colnames(articles_df)
 
 # Clean up articles_df and join to index dataframe
 articles_df <- articles_df %>%
-  select(filename, sentence = X1) %>%  # Replace X1 with the actual column name
+  select(filename, sentence=value) %>%
   inner_join(final_index)
 
-# After reviewing articles_df, drop unnecessary rows (if required)
+#After viewing articles_df, I see 1505 lines from the index that I don't need. Cutting them 
+
 articles_df <- articles_df %>%
-  slice(-c(1:1517)) %>%
-  filter(trimws(sentence) != "")  # Remove blank rows
+  slice(-c(1:1505)) |> 
+  #gets rid of blank rows
+    filter(trimws(sentence) != "") 
 
-# Write the final dataframe to a CSV file
-write_csv(articles_df, "extracted_text/dele_df2.csv")
-
-```
-
-
-
-## Text compiler
-```{r echo= T, results = 'hide', warning=F, error=F, message=F}
-
+write_csv(articles_df, "articles_df.csv")
 
 ```
 
 
+#bigrams
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidytext)
+library(stringr)
+
+bigrams <- articles_df %>% 
+  select(sentence) %>% 
+  mutate(
+    sentence = str_squish(sentence),                      
+    sentence = tolower(sentence),
+    sentence = str_replace_all(sentence, c(
+    "copyright" = "",
+    "new york times"="",
+    "publication"="",
+    "www.alt"="",
+    "http"=""))) %>% 
+  unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>%                 # Filter out stop words
+  filter(!word2 %in% stop_words$word) %>% 
+  count(word1, word2, sort = TRUE) %>% 
+  filter(!is.na(word1) & !is.na(word2))   
+    
+# Ensure `stop_words` data is available
+data("stop_words")
+
+  # Define the expanded remove pattern for unwanted terms
+remove_pattern <- paste(
+  "title", "pages", "publication date", "publication subject", "publication type", 
+  "issn", "language of publication: english", "document url", "copyright", "news", "lenght", "words", "load", "date", "live updates", "updates assembly", "polling", "units", "total votes",
+  "service last updated", "database", "start of article", "rights reserved", 
+  "local assembly", "local government", "ups assembly", "live ups", "elections", 
+  "accredited voters", "governorship", "registered", "total", "votes", "cast", 
+  "valid", "rejected", "polling units", "electoral commission", 
+  "progressives congress", "independent", "inec", "presidential", "proquest document id", 
+  "classification", "illustration", "caption", "[0-9.]+", "_ftn", "[_]+", "aaa", 
+  "jcr:fec", "___________________", "rauchway", "keynes's", "language", "english", 
+  "length words", sep = "|"
+)
+
+# Process bigrams
+bigrams <- articles_df %>% 
+  select(sentence) %>% 
+  mutate(
+    sentence = str_squish(sentence),                      # Remove extra spaces
+    sentence = tolower(sentence),                         # Convert to lowercase
+    sentence = str_replace_all(sentence, remove_pattern, ""), # Remove unwanted terms
+    sentence = str_replace_all(sentence, "- ", ""),       # Remove trailing hyphens
+    sentence = str_replace_all(sentence, "\\b[a-zA-Z]\\b", "") # Remove single characters
+  ) %>% 
+  unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>%                 # Filter out stop words
+  filter(!word2 %in% stop_words$word) %>% 
+  filter(!word1 %in% remove_pattern) %>% 
+  count(word1, word2, sort = TRUE) %>% 
+  filter(!is.na(word1) & !is.na(word2))                   # Filter out NAs
+
+bigrams
+```
 
 
+#Top 20 bigrams
+```{r}
+top_bigrams <- bigrams %>%
+  arrange(desc(n)) %>%  
+  head(20)              
+print(top_bigrams)
+```
 
 
+#Visualize top 20 bigrams
+```{r}
+# Ensure the required libraries are loaded
+library(ggplot2)
 
-
-
-
-
+ggplot(top_bigrams, aes(x = reorder(phrase, n), y = n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +  
+  labs(
+    title = "Top bigrams from articles",
+    caption = "n=454 articles. Graphics by Kemi Busari. Dec 1, 2024",
+    x = "Phrases",
+    y = "Count of phrases"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.caption = element_text(hjust = 0, face = "italic")
+  )
+```
 
 
 #Tokenize and remove stop words
@@ -266,56 +315,11 @@ tokenized_df_clean <- tokenized_df %>%
 ```
 
 
-#Bigrams
-```{r}
-#Create bigrams (pairs of consecutive words)
-bigrams_df <- sentences_df %>%
-  unnest_tokens(bigram, sentence, token = "ngrams", n = 2)  # n = 2 creates bigrams
 
-#Remove stop words from bigrams (you can also remove stop words from bigrams)
-bigrams_clean_df <- bigrams_df %>%
-  separate(bigram, c("word1", "word2"), sep = " ") %>%
-  filter(!word1 %in% stop_words$word & !word2 %in% stop_words$word)  
 
-# View cleaned tokenized words and bigrams
-head(tokenized_df_clean) 
-head(bigrams_clean_df)  
-```
-
-#bigrams
-```{r}
-# Load necessary libraries
-library(dplyr)
-library(tidytext)
-library(stringr)
-
-# Ensure stop_words dataset is available
-data("stop_words")
-
-# Fixing and cleaning up the text, removing unwanted patterns
-bigrams <- sentences_df %>% 
-  select(sentence) %>%  
-  mutate(text = str_squish(sentence)) %>%  # Remove extra whitespace
-  mutate(text = tolower(sentence)) %>%  # Convert to lowercase
-  mutate(text = str_replace_all(sentence, 
-        "title|pages|publication date|publication subject|issn|language of publication: english|document url|copyright|last updated|database|startofarticle|proquest document id|classification|https|--|people|publication|page 1|page 2|page 3|load date| rights reserved|words byline|live updates|words body|accredited voters|registered voters|votes cast|total votes|valid votes|polling units|democratic party|125 live|total valid| info|illustration|caption|[0-9.]|identifier /keyword|twitter\\.", "")) %>%  
-  mutate(text = str_replace_all(sentence, "- ", "")) %>%  # Remove hyphen followed by space
-  unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>%  
-  separate(bigram, c("word1", "word2"), sep = " ") %>%  
-  filter(!word1 %in% stop_words$word) %>%  
-  filter(!word2 %in% stop_words$word) %>%  
-  count(word1, word2, sort = TRUE) %>%  
-  filter(!is.na(word1))  
-
-# View the top bigrams
-head(bigrams)
-
-```
-#This is not a clean bigram. I'm still working on it so i decided not to visualize
-
+In this part, i used the excel data downloaded from NexisUni to useful statistics
 
 #load excel file and clean date column
-#I was unable to merge this with the text file
 ```{r}
 library(readxl)
 library(lubridate)
@@ -341,8 +345,6 @@ head(dele_excel)
 
 # Count the number of articles published per year
 ```{r}
-
-
 # Count the number of articles published per year and arrange by year
 articles_per_year <- dele_excel %>%
   count(year) %>%  
@@ -453,7 +455,7 @@ top_10_newspapers <- articles_per_newspaper %>%
 ```
 
 
-#Visualize
+#Visualize top 10
 ```{r}
 ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = total_articles)) +
   geom_bar(stat = "identity", fill = "steelblue", color = "black") +  
