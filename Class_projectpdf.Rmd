@@ -481,14 +481,14 @@ dele_anger
 
 ## Sentiment during military era - 1986-1999
 ```{r}
-military_sentiment <-  articles_df %>% 
-  filter(year >= 1986 & year <=1999)
+#military_sentiment <-  articles_df %>% 
+  #filter(year >= 1986 & year <=1999)
 ```
 
 ## Sentiment in the democratic era - 2000 -2023
 ```{r}
-military_sentiment <-  articles_df %>% 
-  filter(year >= 2000 & year <=2023)
+#military_sentiment <-  articles_df %>% 
+  #filter(year >= 2000 & year <=2023)
 ```
 
 Note: These two codes did not work because my final dataframe did not capture year and publication. I am still trying to figure this out.
