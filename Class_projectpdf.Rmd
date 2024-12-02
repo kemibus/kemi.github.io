@@ -5,7 +5,7 @@ date: "2024-11-24"
 output: html_document
 ---
 
-#Welcome to my final project 
+##Welcome to my final project 
 
 #Summary of final project (word version uploaded to directory)
 This study examines 454 commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
@@ -31,7 +31,7 @@ Role Model: Description of Dele Giwa as an icon of good journalism whose work in
 
 
 
-#Load packages
+##Load packages
 ```{r}
 library(pdftools)
 library(tidyverse)
@@ -43,12 +43,12 @@ library(dplyr)
 library(tidyr)
 ```
 
-#link to dataset on GitHub
+##link to dataset on GitHub
 ```{r}
 #link - https://github.com/kemibus/kemi_new/blob/main/dele.PDF
 ```
 
-#Read text from a PDF file
+##Read text from a PDF file
 ```{r}
 # Specify the file path
 #filepath <- "~/GitHub/kemi_new/dele.PDF"
@@ -60,7 +60,7 @@ writeLines (text, "~/GitHub/kemi_new/dele.text")
 ```
 
 
-#Split the text to have one article per file
+##Split the text to have one article per file
 ```{r}
 
 #Read the text from the PDF
@@ -87,7 +87,7 @@ cat("Files created:", length(dele_split), "\n")
 
 ```
 
-
+##Extract lines for index
 ```{r}
 dele_index <- read_lines("~/GitHub/kemi_new/dele_extracted/dele_extracted1.txt")
 extracted_lines <-dele_index[16:1504]
@@ -95,7 +95,6 @@ cat(head(extracted_lines, 7), sep = "\n")
 extracted_lines <- extracted_lines |> 
   as.data.frame()
 ```
-
 
 ## Build a final dataframe index
 
@@ -144,7 +143,7 @@ write_csv(final_data, "./final_data.csv")
 ```
 
 
-#Raw text compiler 
+##Raw text compiler 
 ```{r}
 # List all text files in the directory
 files <- list.files("~/GitHub/kemi_new/dele_extracted", pattern="*.txt") |>
@@ -163,11 +162,10 @@ final_index <- final_data |>
 
 # Display the head of the compiled dataframe with filenames and content
 head(final_index)
-
 ```
 
 
-#Text compiler
+##Text compiler
 ```{r}
 # Define function to loop through each text file 
 
@@ -209,7 +207,7 @@ write_csv(articles_df, "articles_df.csv")
 ```
 
 
-#bigrams
+##bigrams
 ```{r}
 # Load necessary libraries
 library(dplyr)
@@ -273,7 +271,7 @@ bigrams
 ```
 
 
-#Top 20 bigrams
+##Top 20 bigrams
 ```{r}
 top_bigrams <- bigrams %>%
   arrange(desc(n)) %>%  
@@ -282,13 +280,11 @@ print(top_bigrams)
 ```
 
 
-#Visualize top 20 bigrams
+##Visualize top 20 bigrams
 ```{r}
 # Ensure the required libraries are loaded
-library(ggplot2)
-
-ggplot(top_bigrams, aes(x = reorder(phrase, n), y = n)) +
-  geom_col(fill = "steelblue") +
+ggplot(top_bigrams, aes(x = reorder(paste(word1, word2, sep = " "), n), y = n)) +
+  geom_col(fill = "steelblue") + 
   coord_flip() +  
   labs(
     title = "Top bigrams from articles",
@@ -298,26 +294,406 @@ ggplot(top_bigrams, aes(x = reorder(phrase, n), y = n)) +
   ) +
   theme_minimal(base_size = 14) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.caption = element_text(hjust = 0, face = "italic")
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    plot.caption = element_text(hjust = 0, face = "italic", size = 10),
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold")
   )
 ```
 
-
-#Tokenize and remove stop words
+##Number of rows - 454
 ```{r}
-# Tokenize the sentences into individual words
-tokenized_df <- sentences_df %>%
-  unnest_tokens(word, sentence)  
-# Step 2: Remove stop words using the stop_words dataset from tidytext
-tokenized_df_clean <- tokenized_df %>%
-  anti_join(stop_words, by = "word") 
+nrow(final_data)
+```
+##Number of columns - 4
+```{r}
+ncol(final_data)
+```
+
+##Sentiment Analysis
+
+```{r}
+library(textdata)
+library(quanteda)
+```
+
+##Tokenize text
+```{r}
+text_tokenized <- articles_df %>% 
+  select(sentence) %>% 
+  unnest_tokens(word, sentence)
+```
+
+
+##Filter tokenized text
+```{r}
+text_tokenized <- articles_df %>% 
+  select(sentence) %>% 
+  mutate(sentence = str_replace_all(sentence, "- ", "")) %>% 
+  unnest_tokens(word, sentence) %>% 
+  filter(!word %in% stop_words$word) %>% 
+  filter(word != "stories_corpus") %>%
+  filter(!grepl('[0-9]', word))
+```
+
+
+##Word count
+```{r}
+text_word_ct <- text_tokenized %>%
+  count(word, sort=TRUE)
+text_word_ct
+```
+
+
+##Load NRC lexicon
+```{r}
+nrc_sentiments <- get_sentiments("nrc")
+
+nrc_sentiments %>% count(sentiment)
+
+nrc_sentiments %>% 
+  group_by(word) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  distinct()
+```
+
+## Count Overall Sentiment with NRC
+```{r}
+
+sentiments_all <- text_tokenized %>%
+  inner_join(nrc_sentiments) 
+
+sentiments_all %>% 
+  group_by(word) %>% 
+    count(sentiment) %>% 
+  arrange(desc(n))
+```
+
+```{r}
+sentiments_all <- text_tokenized %>%
+  inner_join(nrc_sentiments) %>%
+  count(sentiment, sort = TRUE) %>% 
+  mutate(pct_total =round(n/sum(n), digits=2))
+
+sentiments_all
 ```
 
 
 
+## Create ggplot
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
 
-In this part, i used the excel data downloaded from NexisUni to useful statistics
+# Plot the sentiment analysis results
+nrc_plot <- sentiments_all %>% 
+  ggplot(aes(x = reorder(sentiment, n), y = n, fill = sentiment)) + 
+  geom_bar(stat = "identity", position = "dodge") +  
+  theme(legend.position = "none") +  
+  labs(
+    title = "Total Sentiment in Articles About Dele Giwa",
+    subtitle = " ",
+    caption = "NRC Sentiment Analysis. Graphic by Kemi Busari, Dec 1, 2024",
+    x = "Total Sentiment Score",
+    y = "Score"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.caption = element_text(hjust = 0, size = 10)
+  ) +
+  scale_fill_brewer(palette = "Set3") +
+  coord_flip()  
+
+# Print the plot
+print(nrc_plot)
+```
+
+##Check the words in some of the sentiments
+
+#Positive
+```{r}
+nrc_positive <- nrc_sentiments %>%
+  filter(sentiment == "positive")
+dele_positive <- text_tokenized %>%
+  inner_join(nrc_positive) %>%
+  count(word, sort = TRUE)
+dele_positive
+
+```
+
+#Trust
+```{r}
+#Trust
+nrc_trust <- nrc_sentiments %>%
+  filter(sentiment == "trust")
+dele_trust <- text_tokenized %>%
+  inner_join(nrc_trust) %>%
+  count(word, sort = TRUE)
+dele_trust
+```
+
+
+#Negative
+```{r}
+nrc_negative <- nrc_sentiments %>%
+  filter(sentiment == "negative")
+dele_negative <- text_tokenized %>%
+  inner_join(nrc_negative) %>%
+  count(word, sort = TRUE)
+dele_negative
+```
+
+
+#Fear
+```{r}
+nrc_fear <- nrc_sentiments %>%
+  filter(sentiment == "fear")
+dele_fear <- text_tokenized %>%
+  inner_join(nrc_fear) %>%
+  count(word, sort = TRUE)
+dele_fear
+```
+
+
+#Anticipation
+```{r}
+nrc_anticipation <- nrc_sentiments %>%
+  filter(sentiment == "anticipation")
+dele_anticipation <- text_tokenized %>%
+  inner_join(nrc_anticipation) %>%
+  count(word, sort = TRUE)
+dele_anticipation
+```
+
+
+#Anger
+```{r}
+nrc_anger <- nrc_sentiments %>%
+  filter(sentiment == "anger")
+dele_anger <- text_tokenized %>%
+  inner_join(nrc_anger) %>%
+  count(word, sort = TRUE)
+dele_anger
+```
+
+##Sentiment during military era - 1986-1999
+```{r}
+military_sentiment <-  articles_df %>% 
+  filter(year >= 1986 & year <=1999)
+```
+
+##Sentiment in the democratic era - 2000 -2023
+```{r}
+military_sentiment <-  articles_df %>% 
+  filter(year >= 2000 & year <=2023)
+```
+
+Note: These two codes did not work because my final dataframe did not capture year and publication. I am still trying to figure this out.
+
+
+
+##Topic modelling
+
+#Install and load packages 
+```{r}
+# install.packages("here")
+# install.packages("tidytext")
+# install.packages("quanteda")
+# install.packages("tm")
+# install.packages("topicmodels")
+# install.packages("reshape2")
+# install.packages("ggplot2")
+# install.packages("wordcloud")
+# install.packages("pals")
+# install.packages("SnowballC")
+# install.packages("lda")
+# install.packages("ldatuning")
+# install.packages("kableExtra")
+# install.packages("DT")
+# install.packages("flextable")
+# install.packages("remotes")
+# remotes::install_github("rlesur/klippy")
+#install.packages("rio")
+#install.packages("readtext")
+#install.packages("formattable")
+
+
+```
+
+
+```{r include=FALSE}
+# set options
+options(stringsAsFactors = F)         # no automatic data transformation
+options("scipen" = 100, "digits" = 4) # suppress math annotation
+# load packages
+here::here()
+library(tidyverse)
+library(tidytext)
+library(rio)
+library(readtext)
+#topic modeling
+library(quanteda)
+library(tm)
+library(topicmodels)
+library(lda)
+library(ldatuning)
+# from tutorial packages
+library(DT)
+library(knitr) 
+library(kableExtra) 
+library(reshape2)
+library(ggplot2)
+library(wordcloud)
+library(pals)
+library(SnowballC)
+library(flextable)
+```
+
+
+## Process into corpus object
+```{r}
+topic_data <- articles_df %>% 
+  select(filename, sentence) %>% 
+  as.data.frame() %>% 
+  rename(doc_id = filename, text= sentence)
+
+# load stopwords
+english_stopwords <- readLines("https://slcladal.github.io/resources/stopwords_en.txt", encoding = "UTF-8")
+# create corpus object
+corpus <- Corpus(DataframeSource(topic_data))
+# Preprocessing chain
+processedCorpus <- tm_map(corpus, content_transformer(tolower))
+processedCorpus <- tm_map(processedCorpus, removeWords, english_stopwords)
+processedCorpus <- tm_map(processedCorpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+processedCorpus <- tm_map(processedCorpus, removeNumbers)
+processedCorpus <- tm_map(processedCorpus, stemDocument, language = "en")
+processedCorpus <- tm_map(processedCorpus, stripWhitespace)
+```
+
+
+
+```{r tm3a}
+#DTM: rows correspond to the documents in the corpus. Columns correspond to the terms in the documents. Cells correspond to the weights of the terms. (Girder)
+# compute document term matrix with terms >= minimumFrequency
+minimumFrequency <- 5
+DTM <- DocumentTermMatrix(processedCorpus, control = list(bounds = list(global = c(minimumFrequency, Inf))))
+# have a look at the number of documents and terms in the matrix
+dim(DTM)
+# due to vocabulary pruning, we have empty rows in our DTM
+# LDA does not like this. So we remove those docs from the
+# DTM and the metadata
+sel_idx <- slam::row_sums(DTM) > 0
+DTM <- DTM[sel_idx, ]
+topic_data <- topic_data[sel_idx, ]
+#5 term minimum[1] 1387 3019
+#5 term minimum[1] 308597 10339
+
+``` 
+
+## Topic proportions 
+
+```{r tm12}
+# number of topics
+# K <- 20
+K <- 6
+# set random number generator seed
+set.seed(9161)
+#Latent Dirichlet Allocation, LDA
+topicModel2 <- LDA(DTM, K, method="Gibbs", control=list(iter = 1000, verbose = 25, alpha = 0.2))
+tmResult <- posterior(topicModel2)
+theta <- tmResult$topics
+beta <- tmResult$terms
+topicNames <- apply(terms(topicModel2, 10), 2, paste, collapse = " ")  # reset topicnames
+```
+
+##Number of articles
+```{r}
+# Step 1: Check dimensions
+n_theta <- nrow(theta)
+n_topicdata<- length(topic_data)
+
+cat("Number of rows in theta: ", n_theta, "\n")
+cat("Number of documents in textdata: ", n_topicdata, "\n")
+
+# Check if textdata contains all the documents in theta
+common_ids <- intersect(rownames(theta), topic_data$doc_id) # Assuming textdata has a 'doc_id' column
+
+# Filter textdata to include only the documents present in theta
+topicdata_filtered <- topic_data[topic_data$doc_id %in% common_ids, ]
+
+# Check dimensions after filtering
+n_topicdata_filtered <- nrow(topicdata_filtered)
+cat("Number of documents in filtered textdata: ", n_topicdata_filtered, "\n")
+
+
+# Align rownames of theta with filtered textdata
+theta_aligned <- theta[rownames(theta) %in% topicdata_filtered$doc_id, ]
+
+# Step 2: Combine data
+full_data <- data.frame(theta_aligned, decade = topicdata_filtered)
+
+# get mean topic proportions per decade
+# topic_proportion_per_decade <- aggregate(theta, by = list(decade = textdata$decade), mean)
+# set topic names to aggregated columns
+colnames(full_data)[2:(K+1)] <- topicNames
+# reshape data frame
+vizDataFrame <- melt(full_data)
+   
+```
+
+##Examine topic
+
+```{r}
+#enframe(): Converts a named list into a dataframe.
+topics <- enframe(topicNames, name = "number", value = "text") %>% 
+  unnest(cols = c(text)) 
+  
+topics
+```
+
+## Review the topics 
+```{r}
+theta2 <- as.data.frame(theta)
+
+topic1 <- theta2 %>% 
+  rownames_to_column(var = "file") |> # putting the rownames into a new column called file
+  mutate(file = str_remove(file, "^X"),  # Remove leading 'X'
+         line = str_extract(file, "(?<=\\.txt)\\.\\d+")) |>   # Extract number after .txt
+  mutate(file = str_remove(file, "\\.\\d+$")) |> 
+  rename(topic1 = '1') |> 
+  top_n(20, topic1) |> 
+  arrange(desc(topic1)) |>  
+  select(file, line, topic1) 
+```
+
+
+##Add categories
+
+```{r}
+vizDataFrame <- vizDataFrame %>% 
+  mutate(category = case_when(
+    str_detect(variable, "govern presid countri nigeria militari polit peopl court nigerian nation") ~ "unresolved_case",
+    str_detect(variable, "giwa dele journalist kill murder polic death bomb lago load-dat") ~ "assasination",
+    str_detect(variable, "book journal school write ray read year univers nigerian stori") ~ "remenbrance",
+    str_detect(variable, "page media nigeria newspap report nation editor right time news") ~ "nigerian_newspapers",
+    str_detect(variable, "state vote elect pdp apc govern voter parti word unit") ~ "election",
+    str_detect(variable, "peopl man god life day time good thing nigeria live
+") ~ "memory",
+    TRUE ~ NA_character_  
+  ))
+
+```
+
+Note: I reached a dead end here and would love to get some guidance.
+
+
+
+##In this part, i used the excel data downloaded from NexisUni to useful statistics
+
+
 
 #load excel file and clean date column
 ```{r}
@@ -343,7 +719,7 @@ head(dele_excel)
 
 
 
-# Count the number of articles published per year
+## Count the number of articles published per year
 ```{r}
 # Count the number of articles published per year and arrange by year
 articles_per_year <- dele_excel %>%
@@ -354,14 +730,14 @@ articles_per_year <- dele_excel %>%
 print(articles_per_year)
 ```
 
-# Remove NA values from the year column
+## Remove NA values from the year column
 ```{r}
 dele_excel <- dele_excel %>%
   filter(!is.na(year))  
 ```
 
 
-#visualize year
+##visualize year
 ```{r}
 ggplot(articles_per_year, aes(x = year, y = n)) +
   geom_line(color = "steelblue", size = 1.2) +  
@@ -384,14 +760,14 @@ ggplot(articles_per_year, aes(x = year, y = n)) +
 ```
 
 
-#Identify the top five years with the most publications
+##Identify the top five years with the most publications
 ```{r}
 top_5 <- articles_per_year %>%
   top_n(5, n)
 ```
 
 
-#Visualize top 5
+##Visualize top 5
 ```{r}
 ggplot(top_5, aes(x = factor(year), y = n)) +
   geom_bar(stat = "identity", fill = "steelblue", color = "black") +
@@ -404,7 +780,7 @@ ggplot(top_5, aes(x = factor(year), y = n)) +
   ) 
 ```
 
-#count the number of articles in military era(1986 to 1999)
+##count the number of articles in military era(1986 to 1999)
 ```{r}
 articles_1986_1999 <- dele_excel %>%
   filter(year >= 1986 & year <= 1999) %>%  
@@ -413,7 +789,7 @@ articles_1986_1999 <- dele_excel %>%
 #Only 14 articles were published during the military era
 
 
-#count the number of articles in the democratic era(2000 to 2023)
+##count the number of articles in the democratic era(2000 to 2023)
 ```{r}
 articles_2000_2023 <- dele_excel %>%
   filter(year >= 2000 & year <= 2023) %>% 
@@ -422,21 +798,21 @@ total_articles_2000_2023 <- sum(articles_2000_2023$n)
 ```
 
 
-#Remove content inside brackets in publication column
+##Remove content inside brackets in publication column
 ```{r}
 dele_excel <- dele_excel %>%
   mutate(publication_4 = str_remove_all(publication_4, "\\(.*?\\)"))
 ```
 
 
-#Merge "Weekly Trust" into "Daily Trust", they are the same
+##Merge "Weekly Trust" into "Daily Trust", they are the same
 ```{r}
 dele_excel <- dele_excel %>%
   mutate(publication_4 = str_replace(publication_4, "Weekly Trust", "Daily Trust"))
 ```
 
 
-#Count the number of articles published by each newspaper
+##Count the number of articles published by each newspaper
 ```{r}
 articles_per_newspaper <- dele_excel %>%
   count(publication_4) %>%  
@@ -447,7 +823,7 @@ articles_per_newspaper <- dele_excel %>%
 43 news platforms published about Dele Giwa
 
 
-#Show top 10 newspapers
+##Show top 10 newspapers
 ```{r}
 top_10_newspapers <- articles_per_newspaper %>%
   arrange(desc(total_articles)) %>%
@@ -455,7 +831,7 @@ top_10_newspapers <- articles_per_newspaper %>%
 ```
 
 
-#Visualize top 10
+##Visualize top 10
 ```{r}
 ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = total_articles)) +
   geom_bar(stat = "identity", fill = "steelblue", color = "black") +  
@@ -472,6 +848,18 @@ ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = to
     axis.text.x = element_text(angle = 60, hjust = 1)
   )
 ```
+
+##Lessons and what next?
+#Data needs more cleaning
+#Need to figure out how to include values for date and publication in the final dataframe
+#Need to complete topic modelling
+#Open to suggestions to improve
+
+
+
+
+
+
 
 #Summary of final project (word version uploaded to directory)
 In morning of Monday, October 20, 1986, Dele Giwa, regarded as one of the most critical investigative journalists in Nigeria, was assassinated at his residence in Lagos, Nigeria. While the case is still unresolved, Nigerian journalists at every anniversary (and outside the period) publish news and editorialized articles to commemorate the assassination of Giwa. This study examines these commemorative articles to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023). Inquiry will be guided by these research questions:
