@@ -5,7 +5,7 @@ date: "2024-11-24"
 output: html_document
 ---
 
-# Summary of final project (word version uploaded to directory)
+# Summary of final project
 
 This study examines four hundred and fifty four commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
 
@@ -166,7 +166,7 @@ head(final_index)
 
 
 ## Text compiler
-```{r}
+```{r, warning=FALSE,echo = FALSE, results = 'hide' }
 # Define function to loop through each text file 
 
 create_article_text <- function(row_value) {
@@ -203,7 +203,7 @@ articles_df <- articles_df %>%
     filter(trimws(sentence) != "") 
 
 write_csv(articles_df, "articles_df.csv")
-
+head(articles_df, 10)
 ```
 
 
@@ -768,7 +768,7 @@ top_5 <- articles_per_year %>%
 
 
 ## Visualize top 5
-```{r}
+```{r, warning=FALSE}
 ggplot(top_5, aes(x = factor(year), y = n)) +
   geom_bar(stat = "identity", fill = "steelblue", color = "black") +
   labs(
@@ -849,7 +849,8 @@ ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = to
   )
 ```
 
-##Lessons and what next?
+## Lessons and what next?
+
 1. Data needs more cleaning
 2. Need to figure out how to include values for date and publication in the final dataframe
 3. Need to complete topic modelling
