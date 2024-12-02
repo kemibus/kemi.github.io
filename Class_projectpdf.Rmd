@@ -5,22 +5,22 @@ date: "2024-11-24"
 output: html_document
 ---
 
-## Welcome to my final project 
+# Summary of final project (word version uploaded to directory)
 
-#Summary of final project (word version uploaded to directory)
 This study examines four hundred and fifty four commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
 
-#Research Questions
+# Research Questions
+
 1.	What are the dominant themes in the articles commemorating Dele Giwa’s assassination?
 2.	What are the differences in the commemoration of Dele Giwa between the military era (Oct 1987 to May 1999) and the civilian era (May 1999 to Oct 2023)?
 
-#content analysis plan
+# content analysis plan
 The 454 articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis were run with the ultimate aim of identifying dominant themes:
 Bigrams: The dataset was tokenized and then analyzed for bigrams to reveal the top phrases.
 Topic modelling: Latent Dirichlet Allocation (LDA) was used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
 Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
 
-#Coding scheme
+# Coding scheme
 Below is a coding scheme developed based on the literature and my familiarization with the data:
 Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
 Calls for Justice: different expressions advocating for justice or accountability for his assassination.
@@ -31,8 +31,8 @@ Role Model: Description of Dele Giwa as an icon of good journalism whose work in
 
 
 
-## Load packages
-```{r}
+# Load libraries
+```{r, warning=FALSE}
 library(pdftools)
 library(tidyverse)
 library(stringr)
@@ -48,7 +48,7 @@ library(tidyr)
 #link - https://github.com/kemibus/kemi_new/blob/main/dele.PDF
 ```
 
-## Read text from a PDF file
+# Read text from a PDF file
 ```{r}
 # Specify the file path
 #filepath <- "~/GitHub/kemi_new/dele.PDF"
@@ -60,7 +60,7 @@ writeLines (text, "~/GitHub/kemi_new/dele.text")
 ```
 
 
-## Split the text to have one article per file
+# Split the text to have one article per file
 ```{r}
 
 #Read the text from the PDF
@@ -144,7 +144,7 @@ write_csv(final_data, "./final_data.csv")
 
 
 ## Raw text compiler 
-```{r}
+```{r, warning=FALSE}
 # List all text files in the directory
 files <- list.files("~/GitHub/kemi_new/dele_extracted", pattern="*.txt") |>
   as.data.frame() |> 
@@ -208,7 +208,7 @@ write_csv(articles_df, "articles_df.csv")
 
 
 ## bigrams
-```{r}
+```{r, warning=FALSE}
 # Load necessary libraries
 library(dplyr)
 library(tidytext)
@@ -310,9 +310,9 @@ nrow(final_data)
 ncol(final_data)
 ```
 
-## Sentiment Analysis
+# Sentiment Analysis
 
-```{r}
+```{r, warning=FALSE}
 library(textdata)
 library(quanteda)
 ```
@@ -413,7 +413,7 @@ print(nrc_plot)
 
 ## Check the words in some of the sentiments
 
-#Positive
+# Positive
 ```{r}
 nrc_positive <- nrc_sentiments %>%
   filter(sentiment == "positive")
@@ -424,7 +424,7 @@ dele_positive
 
 ```
 
-#Trust
+# Trust
 ```{r}
 #Trust
 nrc_trust <- nrc_sentiments %>%
@@ -436,7 +436,7 @@ dele_trust
 ```
 
 
-#Negative
+# Negative
 ```{r}
 nrc_negative <- nrc_sentiments %>%
   filter(sentiment == "negative")
@@ -447,7 +447,7 @@ dele_negative
 ```
 
 
-#Fear
+# Fear
 ```{r}
 nrc_fear <- nrc_sentiments %>%
   filter(sentiment == "fear")
@@ -458,7 +458,7 @@ dele_fear
 ```
 
 
-#Anticipation
+# Anticipation
 ```{r}
 nrc_anticipation <- nrc_sentiments %>%
   filter(sentiment == "anticipation")
@@ -469,7 +469,7 @@ dele_anticipation
 ```
 
 
-#Anger
+# Anger
 ```{r}
 nrc_anger <- nrc_sentiments %>%
   filter(sentiment == "anger")
@@ -495,10 +495,10 @@ Note: These two codes did not work because my final dataframe did not capture ye
 
 
 
-## Topic modelling
+# Topic modelling
 
 #Install and load packages 
-```{r}
+```{r, warning=FALSE}
 # install.packages("here")
 # install.packages("tidytext")
 # install.packages("quanteda")
@@ -595,7 +595,7 @@ topic_data <- topic_data[sel_idx, ]
 
 ## Topic proportions 
 
-```{r tm12}
+```{r, warning=FALSE}
 # number of topics
 # K <- 20
 K <- 6
@@ -691,12 +691,12 @@ Note: I reached a dead end here and would love to get some guidance.
 
 
 
-## Statistics from Excel data
+# Statistics from Excel data
 
 
 
-#load excel file and clean date column
-```{r}
+# load excel file and clean date column
+```{r, warning=FALSE}
 library(readxl)
 library(lubridate)
 dele_excel  <- rio::import("dele_list.XLSX") %>%
