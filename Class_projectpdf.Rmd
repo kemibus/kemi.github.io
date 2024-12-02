@@ -8,7 +8,7 @@ output: html_document
 ## Welcome to my final project 
 
 #Summary of final project (word version uploaded to directory)
-This study examines 454 commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
+This study examines four hundred and fifty four commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
 
 #Research Questions
 1.	What are the dominant themes in the articles commemorating Dele Giwa’s assassination?
@@ -873,17 +873,17 @@ In morning of Monday, October 20, 1986, Dele Giwa, regarded as one of the most c
 
 ```{r}
 #Spell out your content analysis plan, including preliminary work on a code book
-The 454 articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis will be run with the ultimate aim of identifying dominant themes:
-Bigrams: The dataset will be tokenized and then analyzed for bigrams to reveal the top phrases.
-Topic modelling: Latent Dirichlet Allocation (LDA) will be used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
-Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
+#The four hundred and fifty four articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis will be run with the ultimate aim of identifying dominant themes:
+#Bigrams: The dataset will be tokenized and then analyzed for bigrams to reveal the top phrases.
+#Topic modelling: Latent Dirichlet Allocation (LDA) will be used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
+#Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
 
 #Coding scheme
-Below are some preliminary thoughts on a coding scheme based on the literature and my familiarization with the data:
-Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
-Calls for Justice: different expressions advocating for justice or accountability for his assassination.
-Criticism of Authorities: Critical reflections on the failure of successive governments, law enforcement, or judiciary to solve the murder will fall under this category
-Freedom of the Press: Themes highlighting press freedom and the risks journalists face in Nigeria.
-Comparison of Eras: Contrasts between the military and civilian eras in terms of press freedom, accountability, or socio-political environment.
-Role Model: Description of Dele Giwa as an icon of good journalism whose work inspires other journalists.
+#Below are some preliminary thoughts on a coding scheme based on the literature and my familiarization with the data:
+#Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
+#Calls for Justice: different expressions advocating for justice or accountability for his assassination.
+#Criticism of Authorities: Critical reflections on the failure of successive governments, law enforcement, or judiciary to solve the murder will fall under this category
+#Freedom of the Press: Themes highlighting press freedom and the risks journalists face in Nigeria.
+#Comparison of Eras: Contrasts between the military and civilian eras in terms of press freedom, accountability, or socio-political environment.
+#Role Model: Description of Dele Giwa as an icon of good journalism whose work inspires other journalists.
 ```
