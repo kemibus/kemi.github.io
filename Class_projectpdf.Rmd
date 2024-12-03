@@ -5,6 +5,10 @@ date: "2024-11-24"
 output: html_document
 ---
 
+
+#Preliminatry idea for title
+How Do Journalists Remember Themselves? Dominant Themes in Articles Commemorating Assassinated Nigerian Journalist, Dele Giwa 
+
 # Summary of final project
 
 This study examines four hundred and fifty four commemorative articles about assasinated Nigerian journalist, Dele Giwa, to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023).
@@ -22,11 +26,17 @@ Sentiment analysis: The Afinn dictionary will be used to analyze the overall ton
 
 # Coding scheme
 Below is a coding scheme developed based on the literature and my familiarization with the data:
+
 Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
+
 Calls for Justice: different expressions advocating for justice or accountability for his assassination.
+
 Criticism of Authorities: Critical reflections on the failure of successive governments, law enforcement, or judiciary to solve the murder will fall under this category
+
 Freedom of the Press: Themes highlighting press freedom and the risks journalists face in Nigeria.
+
 Comparison of Eras: Contrasts between the military and civilian eras in terms of press freedom, accountability, or socio-political environment.
+
 Role Model: Description of Dele Giwa as an icon of good journalism whose work inspires other journalists.
 
 
