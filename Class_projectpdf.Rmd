@@ -688,7 +688,7 @@ dele_anger
   #count(sentiment, sort = TRUE)  # Count the number of occurrences of each sentiment
 
 # View the military_sentiment
-print(military_sentiment)
+#print(military_sentiment)
 ```
 
 ## Sentiment in the democratic era - 2000 -2023
@@ -898,7 +898,6 @@ vizDataFrame <- vizDataFrame %>%
 
 #Analysis 
 ```{r}
-Analysis
 #Statistical analysis reveals a notable difference in article publication between the democratic and military eras, with significantly more articles published during the democratic era (439) compared to the military era (14). The peak year for publications about Giwa was 2010, with 53 articles, followed by 2023 (47), 2021 (45), 2018 (36), 2015 (34), and 2014 (27). The data indicates that over half (53%) of the articles were published in the top six years, spanning from 2010 to 2023. Additionally, the analysis identifies the newspaper with the most articles. As shown in Table 1, nine of the newspapers with the most articles are based in Lagos, where Giwa predominantly operated, while one, Daily Trust, is headquartered in Abuja.
 
 #Figure 1: Top 10 newspapers by number of articles
