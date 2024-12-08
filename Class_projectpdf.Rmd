@@ -19,10 +19,10 @@ This study examines four hundred and fifty four commemorative articles about ass
 2.	What are the differences in the commemoration of Dele Giwa between the military era (Oct 1987 to May 1999) and the civilian era (May 1999 to Oct 2023)?
 
 # content analysis plan
-The 454 articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis were run with the ultimate aim of identifying dominant themes:
+The 454 articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are news and opinion articles about Dele Giwa. The following analysis were run with the ultimate aim of identifying dominant themes:
 Bigrams: The dataset was tokenized and then analyzed for bigrams to reveal the top phrases.
 Topic modelling: Latent Dirichlet Allocation (LDA) was used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
-Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
+Sentiment analysis: The NRC dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
 
 # Coding scheme
 Below is a coding scheme developed based on the literature and my familiarization with the data:
@@ -97,7 +97,7 @@ cat("Files created:", length(dele_split), "\n")
 
 ```
 
-## Extract lines for index
+## Extract lines to create index
 ```{r}
 dele_index <- read_lines("~/GitHub/kemi_new/dele_extracted/dele_extracted1.txt")
 extracted_lines <-dele_index[16:1504]
@@ -107,51 +107,17 @@ extracted_lines <- extracted_lines |>
 ```
 
 ## Build a final dataframe index
+## Add data from the excel sheet
+```{r, warning=FALSE}
 
-```{r}
-# Step 1: Trim spaces and detect rows with titles and dates
-cleaned_data <- extracted_lines |>
-  mutate(
-    # Trim leading and trailing spaces before detection
-    trimmed_line = str_trim(extracted_lines),  
-
-    # Detect titles (start with a number and a period)
-    is_title = str_detect(trimmed_line, "^\\d+\\. "),  
-
-    # Detect dates (e.g., "Aug 14, 2024")
-    is_date = str_detect(trimmed_line, "\\b\\w{3} \\d{1,2}, \\d{4}\\b")
-  )
-
-# Step 2: Shift dates to align with corresponding titles
-aligned_data <- cleaned_data |>
-  mutate(
-    date = ifelse(lead(is_date, 1), lead(trimmed_line, 1), NA_character_)  # Shift date to title's row
-  ) |>
-  filter(is_title) |>
-  select(trimmed_line, date)  # Keep only the relevant columns
-
-# Step 3: Rename columns for clarity
-final_data <- aligned_data |>
-  rename(
-    title = trimmed_line,
-    date = date
-  )
-
-# Step 4: Date and Publication in separate columns, and formatted
-final_data <- separate(data = final_data, col = date, into = c("date2", "publication"), sep = "  ", extra = "merge", fill = "right")
-
-# Step 5: Format date, clean headline
-final_data <- final_data |> 
-  mutate(date = as.Date(date2,format = "%b %d, %Y")) |> 
-  mutate(title = str_remove(title, "^\\d+\\. ")) |> 
-  subset(select = -(date2)) |> 
-  mutate(index = row_number()) |> 
-  select(index, date, title, publication)
-
-# Save final data
-write_csv(final_data, "./final_data.csv")
+final_data <- rio::import("dele_list.XLSX") |> #with the new index
+  janitor::clean_names() |> 
+   mutate(date = as.Date(strptime(published_date, "%B %d, %Y"), "%Y-%m-%d")) |> 
+  mutate(index = row_number()) |>
+  mutate(year=year(date))
 ```
 
+  
 
 ## Raw text compiler 
 ```{r, warning=FALSE}
@@ -217,35 +183,205 @@ head(articles_df, 10)
 ```
 
 
+
+## Remove items in the bracket in final index
+```{r, warning=FALSE,echo = FALSE, results = 'hide' }
+final_index <- final_index %>%
+  mutate(across(everything(), ~ str_remove_all(.x, "\\[.*?\\]|\\(.*?\\)|\\{.*?\\}")))
+```
+
+
+## Merge "Weekly Trust" into "Daily Trust", they are the same
+```{r}
+final_index <- final_index %>%
+  mutate(publication_4 = str_replace(publication_4, "Weekly Trust", "Daily Trust"))
+```
+
+## Number of rows - 454
+```{r}
+nrow(final_index)
+```
+
+## Number of columns - 4
+```{r}
+ncol(final_index)
+```
+
+
+## Count the number of articles per year
+```{r}
+# Count the number of articles published per year and arrange by year
+articles_per_year <- final_index %>%
+  count(year) %>%
+  filter(!is.na(year)) %>%
+  arrange(year)
+
+# View the count of articles per year
+print(articles_per_year)
+```
+
+## Visualize articles per year in a table
+```{r, warning=FALSE}
+# Load the DT package
+library(DT)
+articles_per_year_table <- articles_per_year %>%
+  arrange(year)  
+
+# Create an interactive table
+datatable(articles_per_year_table, 
+          options = list(
+            pageLength = 10,    # Number of rows per page
+            autoWidth = TRUE,   # Automatically adjust column width
+            searching = FALSE,  # Disable search bar
+            ordering = TRUE     # Allow sorting of columns
+          )) %>%
+  formatStyle(
+    'n', # Target the column 'n' (Number of Articles)
+    backgroundColor = styleInterval(0, c('#f2f2f2', '#d9f2d9')), # Add alternating row colors
+    fontWeight = 'bold'  # Make the font bold
+  )
+```
+
+
+## Identify the top ten years with the most publications
+```{r}
+top_10 <- articles_per_year %>%
+  top_n(10, n) %>%
+  arrange(desc(n))
+```
+
+
+## Visualize top 10
+```{r, warning=FALSE}
+top_10_plot <- top_10 %>%
+  ggplot(aes(x = reorder(factor(year), n), y = n)) +
+  geom_bar(stat = "identity", fill = "#69b3a2", color = "black", width = 0.7) +
+  geom_text(aes(label = n), vjust = -0.2, size = 3.5, fontface = "bold", color = "black") +
+  labs(
+    title = "Top 10 Years by Number of Articles",
+    subtitle = "Date Created: Dec 7, 2024",
+    caption = "Visualization by Kemi Busari",
+    x = "Year",
+    y = "Number of Articles"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    plot.caption = element_text(hjust = 0, size = 10),
+    axis.text.x = element_text(face = "bold", size = 12),
+    axis.title = element_text(face = "bold")
+  )
+
+# Print the plot
+print(top_10_plot)
+```
+
+
+## count the number of articles in military era(1986 to 1999)
+```{r}
+articles_1986_1999 <- final_index %>%
+  filter(year >= 1986 & year <= 1999) %>%  
+  count(year)
+```
+#Only 14 articles were published during the military era
+
+
+## count the number of articles in the democratic era(2000 to 2023)
+```{r}
+articles_2000_2023 <- final_index %>%
+  filter(year >= 2000 & year <= 2023) %>%  
+  count(year)  
+total_articles_2000_2023 <- sum(articles_2000_2023$n)
+
+# Print the yearly breakdown and total articles
+print(articles_2000_2023)
+print(total_articles_2000_2023)
+
+```
+### 439 articles were published in the democratic era (2000 - 2023)
+
+
+## Count the number of articles published by each newspaper
+```{r}
+articles_per_newspaper <- final_index %>%
+  count(publication_4) %>%  
+  group_by(publication_4) %>%  
+  summarise(total_articles = sum(n)) %>%  
+  arrange(desc(total_articles)) 
+```
+44 news platforms published about Dele Giwa
+
+
+## Extract top 10 newspapers
+```{r}
+top_10_newspapers <- articles_per_newspaper %>%
+  arrange(desc(total_articles)) %>%
+  slice(1:10)
+```
+
+
+
+## Visualize top 10
+```{r}
+top_10_newspapers_plot <- top_10_newspapers %>%
+  ggplot(aes(x = reorder(publication_4, total_articles), y = total_articles)) +
+  geom_bar(stat = "identity", fill = "#0073C2FF", color = "#005f99", width = 0.7) +
+  geom_text(aes(label = total_articles), vjust = -0.3, size = 4, fontface = "bold", color = "black") +
+  labs(
+    title = "Top 10 Newspapers by Number of Articles",
+    subtitle = "Date Created: Dec 7, 2024",
+    caption = "Visualization by Kemi Busari",
+    x = "Newspaper",
+    y = "Number of Articles"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    plot.caption = element_text(hjust = 0, size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10),
+    axis.title = element_text(face = "bold")
+  ) +
+  # Adjust the y-axis limit to ensure the highest bar and its label are visible
+  ylim(0, max(top_10_newspapers$total_articles) * 1.1)
+
+# Print the plot
+print(top_10_newspapers_plot)
+```
+
+
 ## bigrams
 ```{r, warning=FALSE}
 # Load necessary libraries
 library(dplyr)
 library(tidytext)
 library(stringr)
-
+# Process bigrams
 bigrams <- articles_df %>% 
   select(sentence) %>% 
   mutate(
     sentence = str_squish(sentence),                      
     sentence = tolower(sentence),
     sentence = str_replace_all(sentence, c(
-    "copyright" = "",
-    "new york times"="",
-    "publication"="",
-    "www.alt"="",
-    "http"=""))) %>% 
+      "copyright" = "",
+      "new york times" = "",
+      "publication" = "",
+      "www.alt" = "",
+      "http" = ""
+    ))
+  ) %>% 
   unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>% 
   separate(bigram, c("word1", "word2"), sep = " ") %>% 
   filter(!word1 %in% stop_words$word) %>%                 # Filter out stop words
   filter(!word2 %in% stop_words$word) %>% 
   count(word1, word2, sort = TRUE) %>% 
   filter(!is.na(word1) & !is.na(word2))   
-    
+
 # Ensure `stop_words` data is available
 data("stop_words")
 
-  # Define the expanded remove pattern for unwanted terms
+# Define the expanded remove pattern for unwanted terms
 remove_pattern <- paste(
   "title", "pages", "publication date", "publication subject", "publication type", 
   "issn", "language of publication: english", "document url", "copyright", "news", "lenght", "words", "load", "date", "live updates", "updates assembly", "polling", "units", "total votes",
@@ -256,10 +392,12 @@ remove_pattern <- paste(
   "progressives congress", "independent", "inec", "presidential", "proquest document id", 
   "classification", "illustration", "caption", "[0-9.]+", "_ftn", "[_]+", "aaa", 
   "jcr:fec", "___________________", "rauchway", "keynes's", "language", "english", 
-  "length words", sep = "|"
+  "length words", "global media", "allafrica global", "syndigate media", 
+  "peoples democratic", "party pdp", "returning officer", "akwa ibom", 
+  "managing director", "publishing limited", "sun publishing", "sun nigeria", "party pdp", sep = "|"
 )
 
-# Process bigrams
+# Process bigrams again with the updated remove pattern
 bigrams <- articles_df %>% 
   select(sentence) %>% 
   mutate(
@@ -277,7 +415,9 @@ bigrams <- articles_df %>%
   count(word1, word2, sort = TRUE) %>% 
   filter(!is.na(word1) & !is.na(word2))                   # Filter out NAs
 
-bigrams
+# Display the processed bigrams
+print(bigrams)
+
 ```
 
 
@@ -298,7 +438,7 @@ ggplot(top_bigrams, aes(x = reorder(paste(word1, word2, sep = " "), n), y = n)) 
   coord_flip() +  
   labs(
     title = "Top bigrams from articles",
-    caption = "n=454 articles. Graphics by Kemi Busari. Dec 1, 2024",
+    caption = "n=454 articles. Visualization by Kemi Busari. Dec 1, 2024",
     x = "Phrases",
     y = "Count of phrases"
   ) +
@@ -311,14 +451,6 @@ ggplot(top_bigrams, aes(x = reorder(paste(word1, word2, sep = " "), n), y = n)) 
   )
 ```
 
-## Number of rows - 454
-```{r}
-nrow(final_data)
-```
-## Number of columns - 4
-```{r}
-ncol(final_data)
-```
 
 # Sentiment Analysis
 
@@ -421,6 +553,64 @@ nrc_plot <- sentiments_all %>%
 print(nrc_plot)
 ```
 
+
+# Group by sentiment and word, then count the occurrences
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Join the tokenized text with sentiment data
+sentiments_all <- text_tokenized %>%
+  inner_join(nrc_sentiments)
+
+# Group by sentiment and word, then count the occurrences
+top_words_per_sentiment <- sentiments_all %>%
+  count(sentiment, word) %>%
+  arrange(sentiment, desc(n)) %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 5, with_ties = FALSE)  # Get top 5 words for each sentiment
+
+# View the result
+print(top_words_per_sentiment)
+```
+
+
+## Extract top two words in each sentiment
+```{r}
+# Create the plot showing only the top 3 words per sentiment
+sentiment_plot <- top_words_per_sentiment %>%
+  group_by(sentiment) %>%
+  top_n(2, n) %>%  # Select the top 3 words for each sentiment
+  ungroup() %>%
+  ggplot(aes(x = reorder(word, n), y = n, fill = sentiment)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +  # Create bar chart
+  facet_wrap(~sentiment, scales = "free_y", ncol = 2) +  # Facet by sentiment
+  labs(
+    title = "Top 2 Words Associated with Each Sentiment",
+    subtitle = "Top 2 Words in each sentiment",
+    x = "Word",
+    y = "Frequency",
+    caption = "Visualization by Kemi Busari"
+  ) +
+  coord_flip() +  # Flip the axes for readability
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    plot.caption = element_text(hjust = 0, size = 10),
+    axis.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold")
+  )
+
+# Print the plot
+print(sentiment_plot)
+```
+
+
+
+
+
+
 ## Check the words in some of the sentiments
 
 # Positive
@@ -491,8 +681,14 @@ dele_anger
 
 ## Sentiment during military era - 1986-1999
 ```{r}
-#military_sentiment <-  articles_df %>% 
-  #filter(year >= 1986 & year <=1999)
+# Filter the data for the years between 1986 and 1999
+#military_sentiment <- articles_df %>%
+  ##filter(year >= 1986 & year <= 1999) %>%  # Filter for the years 1986-1999
+  #group_by(sentiment) %>%  # Group by sentiment
+  #count(sentiment, sort = TRUE)  # Count the number of occurrences of each sentiment
+
+# View the military_sentiment
+print(military_sentiment)
 ```
 
 ## Sentiment in the democratic era - 2000 -2023
@@ -501,8 +697,7 @@ dele_anger
   #filter(year >= 2000 & year <=2023)
 ```
 
-Note: These two codes did not work because my final dataframe did not capture year and publication. I am still trying to figure this out.
-
+Note: These two codes did not work still. Will keep working on them.
 
 
 # Topic modelling
@@ -697,204 +892,32 @@ vizDataFrame <- vizDataFrame %>%
 
 ```
 
-Note: I reached a dead end here and would love to get some guidance.
 
 
 
-# Statistics from Excel data
 
-
-
-# load excel file and clean date column
-```{r, warning=FALSE}
-library(readxl)
-library(lubridate)
-dele_excel  <- rio::import("dele_list.XLSX") %>%
-  janitor::clean_names()
-# Remove the days of the week from the `publication_date` column
-# Convert the publication_date to Date format and remove weekdays (e.g., "Monday", "Tuesday")
-dele_excel <- dele_excel %>%
-  mutate(
-    published_date = str_remove(published_date, "^\\s*(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\\s*") %>%
-    mdy(),  # Adjust mdy() if your date format is MM/DD/YYYY, use dmy() for DD/MM/YYYY
-    # Create a new column `year` by extracting the year from the `publication_date`
-    year = year(published_date)
-  ) %>%
-  # Arrange the dataframe in descending order by publication_date
-  arrange(desc(published_date))
-
-# View the cleaned data
-head(dele_excel)
-```
-
-
-
-## Count the number of articles published per year
+#Analysis 
 ```{r}
-# Count the number of articles published per year and arrange by year
-articles_per_year <- dele_excel %>%
-  count(year) %>%  
-  arrange(year)    
+Analysis
+#Statistical analysis reveals a notable difference in article publication between the democratic and military eras, with significantly more articles published during the democratic era (439) compared to the military era (14). The peak year for publications about Giwa was 2010, with 53 articles, followed by 2023 (47), 2021 (45), 2018 (36), 2015 (34), and 2014 (27). The data indicates that over half (53%) of the articles were published in the top six years, spanning from 2010 to 2023. Additionally, the analysis identifies the newspaper with the most articles. As shown in Table 1, nine of the newspapers with the most articles are based in Lagos, where Giwa predominantly operated, while one, Daily Trust, is headquartered in Abuja.
 
-# View the count of articles per year
-print(articles_per_year)
-```
+#Figure 1: Top 10 newspapers by number of articles
+ 
 
-## Remove NA values from the year column
-```{r}
-dele_excel <- dele_excel %>%
-  filter(!is.na(year))  
-```
+#As shown in Figure 2, the dominant themes in the top bigrams show that the articles primarily focused on the circumstances surrounding Giwa’s death, the alleged perpetrator, his reputation as a respected journalist, the call for justice, and relationship with his associates. Phrases like “parcel bomb,” “letter bomb,” and “Giwa murder” reflect the prevailing narrative that Giwa was killed by a parcel bomb delivered to his home, which also underscores the ongoing discussion surrounding the unresolved case of his assassination. The annual commemoration of Giwa’s life is evident in the themes, with references such as “journalist Dele,” “Daily Times,” and “Watch Magazine” alluding to his time at various newspapers, including the one he founded, Newswatch Magazine. A key narrative associated with the phrase “journalist Dele” is the positive remembrance of Giwa. For instance, an article discussed an essay competition organized by the Etsako Central Local Government where he hails from. The competition was aimed at “immortalizing his name 37 years after his death.” The article notes that “late Dele Giwa, was a prominent journalist… (who)made significant contributions to the journalism profession and remains a symbol of integrity and courage in the face of adversity.”
 
+#Figure 2: Top 20 bigrams in the articles
+ 
+#Ibrahim Babangida, the Nigerian military head of state at the time of Giwa’s death, also emerged as a significant bigram. In the articles examined, Babangida’s name was often mentioned as the alleged killer and in connection to Giwa’s criticism of the military government, which earned him recognition as a fearless journalist. The mention was more prominent and targeted during the democratic era. In some articles, while Babangida was not explicitly named as the killer, he was blamed for failing to bring the perpetrators to justice. One such article, published in 2023, stated that “the only blame on Ibrahim Babangida was not fishing out his killers.” Calls for justice were a prominent theme in the articles, often conveyed through phrases like “press freedom,” “human rights,” “security agencies,” “national assembly,” and “Olusegun Obasanjo.” The prominence of “Olusegun Obasanjo” suggests a renewed call for justice following Nigeria’s return to democracy in 1999. Obasanjo, who became the first Nigerian president after years of military rule, presided over a period marked by increased demands for justice for Giwa. Articles discussing press freedom in Nigeria also referenced Giwa as an icon. This sentence “Dele Giwa paid the supreme price” was used to discuss the promises of the government in promoting press freedom in Nigeria in 2019 in one of the articles. Another article titled “Press freedom under attack” which discussed the state of press freedom in Nigeria in 2017 referenced Giwa’s assassination as the climax of press attack in Nigeria. Articles which feature the “Boko Haram” phrase indicate the continued mention of Dele Giwa’s death each time the country faces terrorist attacks. An instance of this was in 2013 when the Nigeria Postal Service (NIPOST) discovered a parcel bomb addressed to the Minister of Finance, Dr Ngozi Okonjo-Iweala. “The case of late Dele Giwa remains a sad reference point of such disguise of the evil intentions of the sponsors,” the article referenced.
 
-## visualize year
-```{r}
-ggplot(articles_per_year, aes(x = year, y = n)) +
-  geom_line(color = "steelblue", size = 1.2) +  
-  geom_point(color = "black", size = 3) +         
-  labs(
-    title = "Number of Articles per Year",
-    subtitle = "Date Created: Nov 23, 2024",
-    caption = "Graph by Kemi Busari",
-    x = "Year",
-    y = "Number of Articles"
-  ) +
-  theme_minimal() +  
-  theme(
-    plot.title = element_text(size = 16, face = "bold"),
-    plot.subtitle = element_text(size = 12),
-    plot.caption = element_text(size = 10, face = "italic"),
-    axis.title = element_text(size = 12),
-    axis.text = element_text(size = 10)
-  )
-```
-
-
-## Identify the top five years with the most publications
-```{r}
-top_5 <- articles_per_year %>%
-  top_n(5, n)
-```
-
-
-## Visualize top 5
-```{r, warning=FALSE}
-ggplot(top_5, aes(x = factor(year), y = n)) +
-  geom_bar(stat = "identity", fill = "steelblue", color = "black") +
-  labs(
-    title = "Top 5 Years with Most Publications",
-    subtitle = "Date Created: Nov 23, 2024",
-    caption = "Graph by Kemi Busari",
-    x = "Year",
-    y = "Number of Articles"
-  ) 
-```
-
-## count the number of articles in military era(1986 to 1999)
-```{r}
-articles_1986_1999 <- dele_excel %>%
-  filter(year >= 1986 & year <= 1999) %>%  
-  count(year)
-```
-#Only 14 articles were published during the military era
-
-
-## count the number of articles in the democratic era(2000 to 2023)
-```{r}
-articles_2000_2023 <- dele_excel %>%
-  filter(year >= 2000 & year <= 2023) %>% 
-  count(year) 
-total_articles_2000_2023 <- sum(articles_2000_2023$n)
-```
-
-
-## Remove content inside brackets in publication column
-```{r}
-dele_excel <- dele_excel %>%
-  mutate(publication_4 = str_remove_all(publication_4, "\\(.*?\\)"))
-```
-
-
-## Merge "Weekly Trust" into "Daily Trust", they are the same
-```{r}
-dele_excel <- dele_excel %>%
-  mutate(publication_4 = str_replace(publication_4, "Weekly Trust", "Daily Trust"))
-```
-
-
-## Count the number of articles published by each newspaper
-```{r}
-articles_per_newspaper <- dele_excel %>%
-  count(publication_4) %>%  
-  group_by(publication_4) %>%  
-  summarise(total_articles = sum(n)) %>%  
-  arrange(desc(total_articles)) 
-```
-43 news platforms published about Dele Giwa
-
-
-## Show top 10 newspapers
-```{r}
-top_10_newspapers <- articles_per_newspaper %>%
-  arrange(desc(total_articles)) %>%
-  head(10)
-```
-
-
-## Visualize top 10
-```{r}
-ggplot(top_10_newspapers, aes(x = reorder(publication_4, total_articles), y = total_articles)) +
-  geom_bar(stat = "identity", fill = "steelblue", color = "black") +  
-  geom_text(aes(label = total_articles), vjust = -0.3, size = 5, color = "black") +  
-  labs(
-    title = "Top 10 Newspapers with Most Articles",
-    subtitle = "Date Created: Nov 23, 2024",
-    caption = "Graph by Kemi Busari",
-    x = "Newspaper",
-    y = "Number of Articles"
-  ) +
-  theme_minimal() +  
-  theme(
-    axis.text.x = element_text(angle = 60, hjust = 1)
-  )
-```
-
-## Lessons and what next?
-
-1. Data needs more cleaning
-2. Need to figure out how to include values for date and publication in the final dataframe
-3. Need to complete topic modelling
-4. Open to suggestions to improve
+#Table 1: Frequency of words in sentiment analysis
+ 
+#The sentiment analysis of the dataset revealed a clear prevalence of positive sentiments, accounting for 22% of the total sentiment words. As shown in Figure 3, “journalist” and “president” were associated to this. Trust emerged as the second most frequent sentiment, representing 16% of the total, indicating a strong emphasis the government to unravel the cause of death. Negative sentiments followed closely at 14%, with fear (10%) and anticipation (9%) also notable, reflecting the presence of uncertainty around the death of Giwa. The emotions of anger and sadness were present but less dominant, contributing 7% and 7% respectively. Joy, surprise, and disgust appeared less frequently, with joy at 6%, surprise at 4%, and disgust at 4%. Overall, the findings suggest that the discourse surrounding the Giwa is predominantly positive, with significant levels of trust, yet also an undercurrent of fear, negative emotions, and anticipation. 
 
 
 
+#Figure 3: Top two words associated with sentiment
+ 
+#The topic modeling analysis identifies distinct themes in the dataset related to Dele Giwa’s death and Nigerian politics. The "unresolved_case" category captures ongoing discussions about the case, focusing on terms like "govern," "presid," "nigeria," and "court." The "assassination" theme highlights articles on Giwa’s killing, referencing "giwa," "dele," "journalist," and "death." "Remembrance" relates to articles on Giwa’s legacy, with keywords like "book," "school," and "nigerian." "Nigerian_newspapers" centers on media coverage, while "election" suggest discussions about Giwa’s death during elections. Lastly, "memory" encompasses personal reflections on his life.
 
-
-
-
-#Summary of final project (word version uploaded to directory)
-In morning of Monday, October 20, 1986, Dele Giwa, regarded as one of the most critical investigative journalists in Nigeria, was assassinated at his residence in Lagos, Nigeria. While the case is still unresolved, Nigerian journalists at every anniversary (and outside the period) publish news and editorialized articles to commemorate the assassination of Giwa. This study examines these commemorative articles to identify the dominant themes. The study also analyzes differences in the commemoration during the military era (1987 to May 1999) and civilian (1999 to 2023). Inquiry will be guided by these research questions:
-  
-#Research Questions
-1.	What are the dominant themes in the articles commemorating Dele Giwa’s assassination?
-2.	What are the differences in the commemoration of Dele Giwa between the military era (Oct 1987 to May 1999) and the civilian era (May 1999 to Oct 2023)?
-```
-
-
-
-```{r}
-#Spell out your content analysis plan, including preliminary work on a code book
-#The four hundred and fifty four articles were loaded into R, cleaned and prepared for analysis. The unit of analysis are articles about Dele Giwa. The following analysis will be run with the ultimate aim of identifying dominant themes:
-#Bigrams: The dataset will be tokenized and then analyzed for bigrams to reveal the top phrases.
-#Topic modelling: Latent Dirichlet Allocation (LDA) will be used to cluster words into topics. This will also be used to examine how the themes evolve over time (military vs. civilian era).
-#Sentiment analysis: The Afinn dictionary will be used to analyze the overall tone of the articles. (Not sure about this yet because I think this won’t bring anything special)
-
-#Coding scheme
-#Below are some preliminary thoughts on a coding scheme based on the literature and my familiarization with the data:
-#Bravery and Sacrifice: Mentions of Dele Giwa’s courage, investigative prowess, or ultimate sacrifice for truth and justice.
-#Calls for Justice: different expressions advocating for justice or accountability for his assassination.
-#Criticism of Authorities: Critical reflections on the failure of successive governments, law enforcement, or judiciary to solve the murder will fall under this category
-#Freedom of the Press: Themes highlighting press freedom and the risks journalists face in Nigeria.
-#Comparison of Eras: Contrasts between the military and civilian eras in terms of press freedom, accountability, or socio-political environment.
-#Role Model: Description of Dele Giwa as an icon of good journalism whose work inspires other journalists.
 ```
