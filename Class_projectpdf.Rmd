@@ -902,7 +902,6 @@ vizDataFrame <- vizDataFrame %>%
 
 #Figure 1: Top 10 newspapers by number of articles
  
-
 #As shown in Figure 2, the dominant themes in the top bigrams show that the articles primarily focused on the circumstances surrounding Giwa’s death, the alleged perpetrator, his reputation as a respected journalist, the call for justice, and relationship with his associates. Phrases like “parcel bomb,” “letter bomb,” and “Giwa murder” reflect the prevailing narrative that Giwa was killed by a parcel bomb delivered to his home, which also underscores the ongoing discussion surrounding the unresolved case of his assassination. The annual commemoration of Giwa’s life is evident in the themes, with references such as “journalist Dele,” “Daily Times,” and “Watch Magazine” alluding to his time at various newspapers, including the one he founded, Newswatch Magazine. A key narrative associated with the phrase “journalist Dele” is the positive remembrance of Giwa. For instance, an article discussed an essay competition organized by the Etsako Central Local Government where he hails from. The competition was aimed at “immortalizing his name 37 years after his death.” The article notes that “late Dele Giwa, was a prominent journalist… (who)made significant contributions to the journalism profession and remains a symbol of integrity and courage in the face of adversity.”
 
 #Figure 2: Top 20 bigrams in the articles
@@ -913,10 +912,7 @@ vizDataFrame <- vizDataFrame %>%
  
 #The sentiment analysis of the dataset revealed a clear prevalence of positive sentiments, accounting for 22% of the total sentiment words. As shown in Figure 3, “journalist” and “president” were associated to this. Trust emerged as the second most frequent sentiment, representing 16% of the total, indicating a strong emphasis the government to unravel the cause of death. Negative sentiments followed closely at 14%, with fear (10%) and anticipation (9%) also notable, reflecting the presence of uncertainty around the death of Giwa. The emotions of anger and sadness were present but less dominant, contributing 7% and 7% respectively. Joy, surprise, and disgust appeared less frequently, with joy at 6%, surprise at 4%, and disgust at 4%. Overall, the findings suggest that the discourse surrounding the Giwa is predominantly positive, with significant levels of trust, yet also an undercurrent of fear, negative emotions, and anticipation. 
 
-
-
 #Figure 3: Top two words associated with sentiment
  
 #The topic modeling analysis identifies distinct themes in the dataset related to Dele Giwa’s death and Nigerian politics. The "unresolved_case" category captures ongoing discussions about the case, focusing on terms like "govern," "presid," "nigeria," and "court." The "assassination" theme highlights articles on Giwa’s killing, referencing "giwa," "dele," "journalist," and "death." "Remembrance" relates to articles on Giwa’s legacy, with keywords like "book," "school," and "nigerian." "Nigerian_newspapers" centers on media coverage, while "election" suggest discussions about Giwa’s death during elections. Lastly, "memory" encompasses personal reflections on his life.
-
 ```
